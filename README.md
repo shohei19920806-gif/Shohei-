@@ -57,6 +57,16 @@ Instagramビジネス/クリエイターアカウントをFacebookページに�
 長期アクセストークンを発行。`.env` の `IG_ACCESS_TOKEN` / `IG_USER_ID` を設定。
 ※ Instagram Graph APIは「インターネット上に公開済みの画像URL」しか受け付けません。
 
+### 6. 楽天アフィリエイト（商品リンクの自動挿入・無料）
+
+1. [楽天アフィリエイト](https://affiliate.rakuten.co.jp/) に登録し、管理画面で「アフィリエイトID」を確認
+2. [楽天ウェブサービス](https://webservice.rakuten.co.jp/) でアプリを登録し、「アプリID」を発行（即時）
+3. `.env` の `RAKUTEN_APP_ID` / `RAKUTEN_AFFILIATE_ID` を設定
+
+`generate` で作られた記事本文中の `<!-- AFFILIATE: 商品カテゴリ名 -->` は、
+`insert-affiliate` コマンドで楽天市場の実商品（画像・価格・アフィリエイトリンク）に
+自動で差し替えられます。
+
 ## 使い方
 
 ```bash
@@ -72,7 +82,10 @@ python -m affiliate_blog_tool.cli generate
 # 生成された下書き一覧を確認
 python -m affiliate_blog_tool.cli list-drafts
 
-# 4. WordPressへ投稿（デフォルトは下書き保存。内容を管理画面で確認してから公開推奨）
+# 4. 記事中のAFFILIATEプレースホルダーを楽天の実商品リンクに差し替える
+python -m affiliate_blog_tool.cli insert-affiliate --draft data/drafts/xxx.json
+
+# 5. WordPressへ投稿（デフォルトは下書き保存。内容を管理画面で確認してから公開推奨）
 python -m affiliate_blog_tool.cli publish-wp --draft data/drafts/xxx.json
 # 確認後、実際に公開する場合
 python -m affiliate_blog_tool.cli publish-wp --draft data/drafts/xxx.json --publish

@@ -5,6 +5,7 @@
   python -m affiliate_blog_tool.cli themes --max 5
   python -m affiliate_blog_tool.cli generate
   python -m affiliate_blog_tool.cli list-drafts
+  python -m affiliate_blog_tool.cli insert-affiliate --draft data/drafts/xxx.json
   python -m affiliate_blog_tool.cli publish-wp --draft data/drafts/xxx.json
   python -m affiliate_blog_tool.cli publish-wp --draft data/drafts/xxx.json --publish
   python -m affiliate_blog_tool.cli publish-sns --draft data/drafts/xxx.json \\
@@ -14,6 +15,7 @@
 from __future__ import annotations
 
 import argparse
+import json
 import logging
 import sys
 
@@ -46,6 +48,34 @@ def cmd_list_drafts(args):
     for p in pipeline.list_drafts():
         article = pipeline.load_draft(p)
         print(f"{p.name}\t{article.theme.vertical.value}\t{article.meta_title}")
+
+
+def cmd_insert_affiliate(args):
+    from pathlib import Path
+
+    from affiliate_blog_tool.content.affiliate_inserter import (
+        find_affiliate_placeholders,
+        insert_affiliate_links,
+    )
+    from affiliate_blog_tool.publish.rakuten_client import RakutenClient
+
+    settings = load_settings()
+    draft_path = Path(args.draft)
+    article = pipeline.load_draft(draft_path)
+
+    categories = find_affiliate_placeholders(article.body_markdown)
+    if not categories:
+        print("この下書きにはAFFILIATEプレースホルダーが見つかりませんでした。")
+        return
+
+    print(f"{len(categories)}件のカテゴリを楽天市場で検索します: {', '.join(categories)}")
+    client = RakutenClient(settings.rakuten)
+    article.body_markdown = insert_affiliate_links(
+        article.body_markdown, client, hits_per_category=args.hits
+    )
+
+    draft_path.write_text(json.dumps(article.to_dict(), ensure_ascii=False, indent=2), encoding="utf-8")
+    print(f"楽天商品リンクを挿入し、下書きを更新しました: {draft_path}")
 
 
 def cmd_publish_wp(args):
@@ -115,6 +145,13 @@ def build_parser() -> argparse.ArgumentParser:
 
     p = sub.add_parser("list-drafts", help="生成済み下書きの一覧")
     p.set_defaults(func=cmd_list_drafts)
+
+    p = sub.add_parser(
+        "insert-affiliate", help="下書き内のAFFILIATEプレースホルダーを楽天商品リンクに差し替える"
+    )
+    p.add_argument("--draft", required=True)
+    p.add_argument("--hits", type=int, default=3, help="カテゴリごとに紹介する商品数")
+    p.set_defaults(func=cmd_insert_affiliate)
 
     p = sub.add_parser("publish-wp", help="WordPressへ投稿（デフォルトは下書き保存）")
     p.add_argument("--draft", required=True)

@@ -89,12 +89,24 @@ class InstagramConfig:
 
 
 @dataclass
+class RakutenConfig:
+    app_id: str | None = field(default_factory=lambda: _env("RAKUTEN_APP_ID"))
+    # アフィリエイトIDは省略可能だが、未設定だと商品リンクに成果が付与されないため必須級
+    affiliate_id: str | None = field(default_factory=lambda: _env("RAKUTEN_AFFILIATE_ID"))
+
+    @property
+    def is_configured(self) -> bool:
+        return bool(self.app_id)
+
+
+@dataclass
 class Settings:
     gsc: GSCConfig = field(default_factory=GSCConfig)
     claude: ClaudeConfig = field(default_factory=ClaudeConfig)
     wordpress: WordPressConfig = field(default_factory=WordPressConfig)
     twitter: TwitterConfig = field(default_factory=TwitterConfig)
     instagram: InstagramConfig = field(default_factory=InstagramConfig)
+    rakuten: RakutenConfig = field(default_factory=RakutenConfig)
 
 
 def load_settings() -> Settings:
