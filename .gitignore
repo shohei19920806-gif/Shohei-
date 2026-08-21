@@ -1,0 +1,14 @@
+.env
+credentials/
+__pycache__/
+*.pyc
+.venv/
+venv/
+
+# 生成物（分析レポート・下書き・投稿状態）はローカル成果物のためコミットしない
+data/reports/*.json
+data/drafts/*.json
+data/state/*.json
+!data/reports/.gitkeep
+!data/drafts/.gitkeep
+!data/state/.gitkeep
