@@ -82,6 +82,8 @@ def cmd_publish_wp(args):
     from affiliate_blog_tool.publish.wordpress_client import WordPressClient
     from pathlib import Path
 
+    from affiliate_blog_tool.content.quality_checks import find_experience_placeholders
+
     settings = load_settings()
     client = WordPressClient(settings.wordpress)
 
@@ -90,6 +92,16 @@ def cmd_publish_wp(args):
 
     if not args.publish:
         print("--publish を指定していないため『下書き保存』のみ行います（記事は公開されません）。")
+    else:
+        hints = find_experience_placeholders(article.body_markdown)
+        if hints:
+            print(
+                "⚠ 注意: この記事にはまだ「あなたの体験談」が入っていない箇所があります。"
+                "そのまま公開もできますが、E-E-A-T（Googleの評価基準）の観点では、"
+                "自分の実体験を書き足してからの公開をおすすめします。"
+            )
+            for hint in hints:
+                print(f"   - {hint}")
 
     post = client.create_post(article, publish=args.publish)
     state.mark_used(article.theme.target_keyword, wp_post_id=post.get("id"), wp_url=post.get("link"))
