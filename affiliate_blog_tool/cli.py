@@ -11,6 +11,9 @@
   python -m affiliate_blog_tool.cli publish-sns --draft data/drafts/xxx.json \\
       --url https://example.com/xxx --image https://example.com/eyecatch.jpg --x --instagram
   python -m affiliate_blog_tool.cli run-all --max-themes 3
+  python -m affiliate_blog_tool.cli setup-pages --site-name "育児と釣りブログ" \\
+      --operator-name "しょうへい" --contact-email you@example.com
+  python -m affiliate_blog_tool.cli adsense-checklist
 """
 from __future__ import annotations
 
@@ -130,6 +133,62 @@ def cmd_publish_sns(args):
         )
 
 
+def cmd_setup_pages(args):
+    from affiliate_blog_tool.content.required_pages import (
+        SiteProfile,
+        contact_page_markdown,
+        privacy_policy_markdown,
+        profile_page_markdown,
+    )
+    from affiliate_blog_tool.publish.wordpress_client import WordPressClient
+
+    settings = load_settings()
+    client = WordPressClient(settings.wordpress)
+    profile = SiteProfile(
+        site_name=args.site_name, operator_name=args.operator_name, contact_email=args.contact_email
+    )
+
+    if not args.publish:
+        print("--publish を指定していないため『下書き保存』のみ行います（ページは公開されません）。")
+
+    pages = [
+        ("プライバシーポリシー", privacy_policy_markdown(profile), "privacy-policy"),
+        ("お問い合わせ", contact_page_markdown(profile), "contact"),
+        ("運営者プロフィール", profile_page_markdown(profile), "profile"),
+    ]
+    for title, body, slug in pages:
+        page = client.create_page(title, body, publish=args.publish, slug=slug)
+        print(f"作成: {title} -> id={page.get('id')} status={page.get('status')} url={page.get('link')}")
+
+    print(
+        "\n※ プライバシーポリシーと運営者プロフィールの中身は叩き台です。"
+        "公開前に必ず自分の言葉で内容を確認・編集してください。"
+    )
+
+
+def cmd_adsense_checklist(args):
+    from affiliate_blog_tool.content.adsense_checklist import all_ready, evaluate_readiness
+    from affiliate_blog_tool.publish.wordpress_client import WordPressClient
+
+    settings = load_settings()
+    client = WordPressClient(settings.wordpress)
+
+    published_count = client.count_posts(status="publish")
+    page_titles = [p.get("title", {}).get("rendered", "") for p in client.list_pages()]
+
+    items = evaluate_readiness(published_count, page_titles)
+    print("Googleアドセンス申請 準備状況チェック:\n")
+    for item in items:
+        mark = "✅" if item.ok else "❌"
+        print(f"{mark} {item.name}: {item.detail}")
+
+    print()
+    if all_ready(items):
+        print("準備は整っているようです。あとはGoogleアドセンスの管理画面からサイトを申請してください。")
+    else:
+        print("未達成の項目があります。上記の❌の項目を満たしてから申請することをおすすめします。")
+
+
 def cmd_run_all(args):
     settings = load_settings()
     pipeline.run_analyze(settings, top_n=args.top_n)
@@ -182,6 +241,19 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument("--top-n", type=int, default=30)
     p.add_argument("--max-themes", type=int, default=3)
     p.set_defaults(func=cmd_run_all)
+
+    p = sub.add_parser(
+        "setup-pages",
+        help="アドセンス審査等に必要な固定ページ（プライバシーポリシー等）を作成",
+    )
+    p.add_argument("--site-name", required=True)
+    p.add_argument("--operator-name", required=True)
+    p.add_argument("--contact-email", required=True)
+    p.add_argument("--publish", action="store_true", help="指定時のみ実際に公開する")
+    p.set_defaults(func=cmd_setup_pages)
+
+    p = sub.add_parser("adsense-checklist", help="Googleアドセンス申請前の準備状況を確認")
+    p.set_defaults(func=cmd_adsense_checklist)
 
     return parser
 

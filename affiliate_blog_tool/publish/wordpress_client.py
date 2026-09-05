@@ -106,3 +106,38 @@ class WordPressClient:
             post.get("id"), post.get("status"), post.get("link"),
         )
         return post
+
+    def create_page(self, title: str, body_markdown: str, publish: bool = False, slug: str | None = None) -> dict:
+        """固定ページ（プライバシーポリシー等）を作成する。デフォルトは下書き。"""
+        payload = {
+            "title": title,
+            "content": _markdown_to_html(body_markdown),
+            "status": "publish" if publish else "draft",
+        }
+        if slug:
+            payload["slug"] = slug
+
+        resp = self.session.post(f"{self._api_base}/pages", json=payload, timeout=60)
+        resp.raise_for_status()
+        page = resp.json()
+        logger.info(
+            "固定ページを作成しました: id=%s status=%s url=%s",
+            page.get("id"), page.get("status"), page.get("link"),
+        )
+        return page
+
+    def list_pages(self, per_page: int = 50) -> list[dict]:
+        resp = self.session.get(f"{self._api_base}/pages", params={"per_page": per_page}, timeout=30)
+        resp.raise_for_status()
+        return resp.json()
+
+    def count_posts(self, status: str = "publish") -> int:
+        """指定ステータスの投稿数を返す（アドセンス審査の記事数チェック用）。"""
+        resp = self.session.get(
+            f"{self._api_base}/posts",
+            params={"status": status, "per_page": 1},
+            timeout=30,
+        )
+        resp.raise_for_status()
+        total = resp.headers.get("X-WP-Total")
+        return int(total) if total is not None else len(resp.json())
